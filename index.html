@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<title>Watchlist</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Watchlist">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#2A1A3E">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+:root {
+  --plum: #2A1A3E;
+  --plum-soft: #3C2757;
+  --lamp: #F2B84B;
+  --bg: #F5F2F8;
+  --surface: #FFFFFF;
+  --ink: #2A1A3E;
+  --muted: #776B86;
+  --line: #E6E0EE;
+  --danger: #B3261E;
+  --chip-l: 92%;
+  --chip-s: 70%;
+  --chip-tl: 30%;
+  --chip-ts: 60%;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17101F;
+    --surface: #221830;
+    --ink: #EFE9F6;
+    --muted: #A396B5;
+    --line: #33264A;
+    --danger: #FF8A80;
+    --chip-l: 24%;
+    --chip-s: 38%;
+    --chip-tl: 82%;
+    --chip-ts: 70%;
+  }
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: ui-rounded, "SF Pro Rounded", -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+  font-size: 17px;
+  line-height: 1.3;
+  padding-bottom: calc(84px + var(--safe-bottom));
+  overscroll-behavior-y: none;
+}
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+
+/* Keeps the iPhone clock and battery readable while the list scrolls underneath */
+.statusbar {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: var(--safe-top);
+  background: var(--plum);
+  z-index: 30;
+}
+
+.top {
+  background: var(--plum);
+  color: #fff;
+  padding: calc(var(--safe-top) + 18px) 18px 20px;
+}
+.top-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.top h1 { margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -0.01em; }
+.icon-btn {
+  width: 44px; height: 44px; margin: -6px -8px -6px 0;
+  border: 0; border-radius: 22px; background: transparent; color: #fff;
+  display: grid; place-items: center;
+}
+.icon-btn:active { background: rgba(255,255,255,.12); }
+.week { margin: 2px 0 14px; color: #CFC3E0; font-size: 15px; }
+.progress { height: 8px; border-radius: 4px; background: rgba(255,255,255,.16); overflow: hidden; }
+.progress > i { display: block; height: 100%; width: 0; background: var(--lamp); border-radius: 4px; transition: width .35s ease; }
+.tally { margin: 9px 0 0; font-size: 15px; color: #fff; }
+
+.banner {
+  margin: 12px 12px 0; padding: 12px 14px;
+  background: var(--lamp); color: #2A1A3E;
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  font-size: 15px;
+}
+.banner button {
+  flex: none; border: 0; border-radius: 10px; padding: 9px 12px;
+  background: #2A1A3E; color: #fff; font-weight: 600; font-size: 15px;
+}
+[hidden] { display: none !important; }
+
+.group { margin-top: 18px; }
+.group-head {
+  position: sticky; top: var(--safe-top); z-index: 10;
+  width: 100%; border: 0; text-align: left;
+  background: var(--bg);
+  padding: 10px 18px 8px;
+  display: flex; align-items: baseline; gap: 10px;
+}
+.group-head h2 { margin: 0; font-size: 20px; font-weight: 700; flex: 1; }
+.group-head .left { font-size: 14px; color: var(--muted); }
+.group-head .chev { width: 12px; height: 12px; align-self: center; color: var(--muted); transition: transform .2s ease; }
+.group.is-closed .chev { transform: rotate(-90deg); }
+.group.is-closed .rows { display: none; }
+
+.rows {
+  list-style: none; margin: 0 12px; padding: 0;
+  background: var(--surface);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.row { display: flex; align-items: stretch; border-top: 1px solid var(--line); background: var(--surface); }
+.row:first-child { border-top: 0; }
+.tick {
+  flex: none; width: 56px; min-height: 54px;
+  border: 0; background: transparent; padding: 0;
+  display: grid; place-items: center;
+}
+.tick span {
+  width: 28px; height: 28px; border-radius: 9px;
+  border: 2px solid var(--muted);
+  display: grid; place-items: center;
+  transition: background .15s ease, border-color .15s ease;
+}
+.tick svg { width: 16px; height: 16px; opacity: 0; transform: scale(.6); transition: opacity .15s ease, transform .15s ease; }
+.row.is-done .tick span { background: var(--lamp); border-color: var(--lamp); }
+.row.is-done .tick svg { opacity: 1; transform: none; }
+.body {
+  flex: 1; min-width: 0;
+  border: 0; background: transparent; text-align: left;
+  padding: 10px 14px 10px 0;
+  display: flex; align-items: center; gap: 10px;
+}
+.body:active { opacity: .6; }
+.text { flex: 1; min-width: 0; }
+.title { display: block; font-weight: 600; overflow-wrap: anywhere; }
+.note { display: block; font-size: 14px; color: var(--muted); margin-top: 1px; overflow-wrap: anywhere; }
+.row.is-done .title { color: var(--muted); font-weight: 500; text-decoration: line-through; text-decoration-thickness: 1.5px; }
+.row.is-done .chip { opacity: .55; }
+.chip {
+  flex: none; max-width: 42%;
+  padding: 4px 9px; border-radius: 8px;
+  font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  background: hsl(var(--h, 270) var(--s, 12%) var(--chip-l));
+  color: hsl(var(--h, 270) var(--ts, 14%) var(--chip-tl));
+}
+.chip[data-hue] { --s: var(--chip-s); --ts: var(--chip-ts); }
+.empty { margin: 0 12px; padding: 16px 18px; color: var(--muted); font-size: 15px; background: var(--surface); border-radius: 16px; }
+.group.is-closed .empty { display: none; }
+
+.bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+  padding: 10px 12px calc(10px + var(--safe-bottom));
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+  display: flex; gap: 10px;
+}
+.btn {
+  flex: 1; min-height: 50px;
+  border: 0; border-radius: 14px;
+  font-weight: 700; font-size: 17px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  text-decoration: none;
+}
+.btn:active { transform: scale(.98); }
+.btn-primary { background: var(--lamp); color: #2A1A3E; }
+.btn-quiet { background: var(--surface); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--line); }
+.btn-danger { background: transparent; color: var(--danger); box-shadow: inset 0 0 0 1.5px currentColor; }
+
+.scrim {
+  position: fixed; inset: 0; z-index: 40;
+  background: rgba(20, 10, 32, .55);
+  display: flex; flex-direction: column; justify-content: flex-end;
+  overflow-y: auto;
+}
+.scrim.is-top { justify-content: flex-start; padding-top: calc(var(--safe-top) + 10px); }
+.sheet {
+  background: var(--surface);
+  border-radius: 22px 22px 0 0;
+  padding: 20px 18px calc(18px + var(--safe-bottom));
+}
+.scrim.is-top .sheet { border-radius: 22px; margin: 0 10px 10px; padding-bottom: 18px; }
+.sheet h3 { margin: 0 0 14px; font-size: 21px; }
+.sheet p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
+.field { display: block; margin-bottom: 14px; }
+.field > span { display: block; font-size: 14px; color: var(--muted); margin-bottom: 5px; }
+.field input, .field textarea {
+  width: 100%; padding: 12px 13px;
+  border: 1.5px solid var(--line); border-radius: 12px;
+  background: var(--bg); font-size: 17px;
+}
+.field textarea { min-height: 150px; font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+.field input:focus, .field textarea:focus { outline: 2px solid var(--lamp); outline-offset: 1px; border-color: transparent; }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--lamp); outline-offset: 2px; }
+.picks { display: flex; flex-wrap: wrap; gap: 7px; margin: -6px 0 14px; }
+.pick {
+  border: 0; border-radius: 10px; padding: 8px 11px;
+  font-size: 15px; font-weight: 600;
+  background: var(--bg); color: var(--ink);
+  box-shadow: inset 0 0 0 1.5px var(--line);
+}
+.pick.is-on { background: var(--plum); color: #fff; box-shadow: none; }
+@media (prefers-color-scheme: dark) { .pick.is-on { background: var(--lamp); color: #2A1A3E; } }
+.sheet-actions { display: flex; gap: 10px; margin-top: 6px; }
+.sheet-actions + .sheet-actions { margin-top: 10px; }
+.msg { min-height: 20px; margin: 10px 0 0; font-size: 14px; color: var(--muted); }
+
+.toast {
+  position: fixed; left: 12px; right: 12px; z-index: 35;
+  bottom: calc(84px + var(--safe-bottom));
+  background: var(--plum); color: #fff;
+  border-radius: 14px; padding: 12px 14px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  font-size: 15px;
+  box-shadow: 0 8px 24px rgba(20, 10, 32, .35);
+}
+.toast button { border: 0; background: transparent; color: var(--lamp); font-weight: 700; padding: 6px 4px; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="statusbar"></div>
+
+<header class="top">
+  <div class="top-row">
+    <h1>Watchlist</h1>
+    <button class="icon-btn" id="menuBtn" aria-label="More options">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+    </button>
+  </div>
+  <p class="week" id="week"></p>
+  <div class="progress" aria-hidden="true"><i id="bar"></i></div>
+  <p class="tally" id="tally"></p>
+</header>
+
+<div class="banner" id="banner" hidden>
+  <span>A new week has started. Clear last week's ticks?</span>
+  <button id="bannerBtn">Start new week</button>
+</div>
+
+<main id="list"></main>
+
+<nav class="bar">
+  <button class="btn btn-quiet" id="weekBtn">New week</button>
+  <button class="btn btn-primary" id="addBtn">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M9 2v14M2 9h14"/></svg>
+    Add programme
+  </button>
+</nav>
+
+<!-- Add / edit -->
+<div class="scrim is-top" id="formScrim" hidden>
+  <form class="sheet" id="form" autocomplete="off">
+    <h3 id="formTitle">Add programme</h3>
+    <label class="field"><span>Title</span>
+      <input id="fTitle" type="text" enterkeyhint="next" autocapitalize="words" required>
+    </label>
+    <label class="field"><span>Channel</span>
+      <input id="fChannel" type="text" enterkeyhint="next" placeholder="Pick below or type one">
+    </label>
+    <div class="picks" id="channelPicks"></div>
+    <label class="field"><span>Comment (optional)</span>
+      <input id="fNote" type="text" enterkeyhint="done">
+    </label>
+    <div class="field"><span>List</span></div>
+    <div class="picks" id="sectionPicks"></div>
+    <div class="sheet-actions">
+      <button type="button" class="btn btn-quiet" data-close>Cancel</button>
+      <button type="submit" class="btn btn-primary" id="formSave">Add programme</button>
+    </div>
+    <div class="sheet-actions" id="removeRow" hidden>
+      <button type="button" class="btn btn-danger" id="removeBtn">Remove from list</button>
+    </div>
+  </form>
+</div>
+
+<!-- New week -->
+<div class="scrim" id="weekScrim" hidden>
+  <div class="sheet">
+    <h3>Start a new week?</h3>
+    <p id="weekText"></p>
+    <div class="sheet-actions">
+      <button type="button" class="btn btn-quiet" data-close>Cancel</button>
+      <button type="button" class="btn btn-primary" id="weekConfirm">Clear ticks</button>
+    </div>
+  </div>
+</div>
+
+<!-- Menu -->
+<div class="scrim" id="menuScrim" hidden>
+  <div class="sheet">
+    <h3>More</h3>
+    <p>Your list is saved on this iPhone. Keep a backup if you would hate to retype it.</p>
+    <div class="sheet-actions">
+      <button type="button" class="btn btn-quiet" id="backupBtn">Back up or restore</button>
+    </div>
+    <div class="sheet-actions">
+      <a class="btn btn-quiet" href="https://www.radiotimes.com/user/03d2258ddb344b9/collections/watching" target="_blank" rel="noopener">Open Radio Times list</a>
+    </div>
+    <div class="sheet-actions">
+      <button type="button" class="btn btn-primary" data-close>Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Backup -->
+<div class="scrim is-top" id="backupScrim" hidden>
+  <div class="sheet">
+    <h3>Back up or restore</h3>
+    <p>Copy this text somewhere safe, such as a note or an email to yourself. To restore, paste a saved copy here and tap Restore.</p>
+    <label class="field"><span>Backup text</span>
+      <textarea id="backupText" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
+    </label>
+    <div class="sheet-actions">
+      <button type="button" class="btn btn-quiet" id="copyBtn">Copy</button>
+      <button type="button" class="btn btn-quiet" id="restoreBtn">Restore</button>
+    </div>
+    <div class="sheet-actions">
+      <button type="button" class="btn btn-primary" data-close>Done</button>
+    </div>
+    <p class="msg" id="backupMsg" role="status"></p>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden role="status">
+  <span id="toastText"></span>
+  <button id="toastUndo">Undo</button>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var KEY = 'watchlist.v1';
+  var SECTIONS = [
+    { id: 'us', name: 'Tim & Wendy' },
+    { id: 'tim', name: 'Tim' },
+    { id: 'pending', name: 'Pending' },
+    { id: 'films', name: 'Films' },
+    { id: 'audio', name: 'Audio' }
+  ];
+  var CHANNELS = ['BBC', 'ITV', 'C4', 'C5', 'U', 'Now', 'Prime', 'Disney', 'Radio', 'Podcast'];
+  var HUES = { itv: 188, c4: 268, c5: 345, u: 24, now: 158, prime: 212, disney: 236, radio: 44, podcast: 300, goalhanger: 300 };
+
+  // First-run list. After that the list lives on the phone and this is ignored.
+  var SEED = {
+    us: [
+      ['Granite City', 'BBC'], ['Professor T', 'ITV'], ['Ludwig', 'BBC'], ['Chelsea Detective', 'U'],
+      ['All Creatures…', 'C5'], ['Benidorm Is Murder', 'C5'], ['Grand Tour', 'Prime'], ['Race the World', 'BBC'],
+      ['Hamza Birds of Prey', 'BBC'], ['House of the Dragon', 'Now'], ['Vigil', 'BBC'], ['Trigger Point', 'ITV'],
+      ['Small Prophets', 'BBC'], ['Pottery Throw Down', 'C4'], ['Colin from Accounts', 'BBC'], ['Not Going Out', 'BBC'],
+      ['Alan Carr', 'ITV'], ['Missed Call', 'C5'], ['Lanterns', 'Now'], ['Traitors', 'BBC'], ['Kill Jackie', 'Prime'],
+      ['Marble Hall Murders', 'BBC'], ['Winter', 'ITV'], ['Blue Lights', 'BBC'], ['Neagley', 'Prime'],
+      ['Michael Palin in the Philippines', 'C5'], ['Forsythes', ''], ['Winter', 'ITV', 'Forensic'], ['War', 'Now', 'Legal']
+    ],
+    tim: [
+      ['The Light in the Hall', 'C4'], ['The American Revolution', 'BBC'], ['Paris HQ 1910', 'BBC'],
+      ['Sicario 2', 'BBC', 'Film'], ['War Cabinet', 'Now']
+    ],
+    pending: [
+      ['Kill Jackie', 'Prime'], ['Sam and Ade Go Birding', 'C5'], ['Rosa Elettrica', 'Now'], ['The Prisoner', 'Now'],
+      ['This Is Not a Murder Mystery', 'U'], ['Spain with Michael P', 'C5'], ['Tinker, Tailor, Soldier, Spy', 'BBC'],
+      ['Paradise', 'Disney'], ['Hotel Portofino', '']
+    ],
+    films: [['In the Grey', 'Prime'], ['Downton Abbey films', '']],
+    audio: [['Bear Hunt', 'Goalhanger']]
+  };
+
+  var $ = function (id) { return document.getElementById(id); };
+  var state = load();
+  var editingId = null;
+  var formSection = 'us';
+  var undoState = null;
+  var toastTimer = null;
+
+  /* ---------- storage ---------- */
+
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
+  function mondayOf(d) {
+    var x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+    return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0');
+  }
+
+  function seedState() {
+    var items = [];
+    SECTIONS.forEach(function (s) {
+      (SEED[s.id] || []).forEach(function (r) {
+        items.push({ id: uid(), section: s.id, title: r[0], channel: r[1] || '', note: r[2] || '', done: false, doneAt: 0 });
+      });
+    });
+    return { v: 1, weekStart: mondayOf(new Date()), closed: {}, items: items };
+  }
+
+  function clean(raw) {
+    if (!raw || !Array.isArray(raw.items)) return null;
+    var known = SECTIONS.map(function (s) { return s.id; });
+    var items = raw.items.filter(function (i) { return i && typeof i.title === 'string' && i.title.trim(); }).map(function (i) {
+      return {
+        id: String(i.id || uid()),
+        section: known.indexOf(i.section) >= 0 ? i.section : 'pending',
+        title: i.title.trim(),
+        channel: typeof i.channel === 'string' ? i.channel.trim() : '',
+        note: typeof i.note === 'string' ? i.note.trim() : '',
+        done: !!i.done,
+        doneAt: Number(i.doneAt) || 0
+      };
+    });
+    return {
+      v: 1,
+      weekStart: typeof raw.weekStart === 'string' ? raw.weekStart : mondayOf(new Date()),
+      closed: raw.closed && typeof raw.closed === 'object' ? raw.closed : {},
+      items: items
+    };
+  }
+
+  function load() {
+    try {
+      var saved = clean(JSON.parse(localStorage.getItem(KEY)));
+      if (saved) return saved;
+    } catch (e) { /* fall through to a fresh list */ }
+    return seedState();
+  }
+
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* list still works for this visit */ }
+  }
+
+  /* ---------- rendering ---------- */
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  function sorted(sectionId) {
+    var rows = state.items.filter(function (i) { return i.section === sectionId; });
+    var todo = rows.filter(function (i) { return !i.done; });
+    var done = rows.filter(function (i) { return i.done; }).sort(function (a, b) { return a.doneAt - b.doneAt; });
+    return todo.concat(done);
+  }
+
+  function chipFor(channel) {
+    var c = el('span', 'chip', channel);
+    var hue = HUES[channel.toLowerCase()];
+    if (hue != null) { c.setAttribute('data-hue', ''); c.style.setProperty('--h', hue); }
+    return c;
+  }
+
+  var TICK_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="#2A1A3E" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3.3 3.3L13 4.8"/></svg>';
+  var CHEV_SVG = '<svg class="chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 4l4 4 4-4"/></svg>';
+
+  function render(animate) {
+    var before = {};
+    if (animate) {
+      document.querySelectorAll('.row').forEach(function (r) { before[r.dataset.id] = r.getBoundingClientRect().top; });
+    }
+
+    var list = $('list');
+    list.textContent = '';
+
+    SECTIONS.forEach(function (s) {
+      var rows = sorted(s.id);
+      var left = rows.filter(function (i) { return !i.done; }).length;
+
+      var group = el('section', 'group' + (state.closed[s.id] ? ' is-closed' : ''));
+      var head = el('button', 'group-head');
+      head.type = 'button';
+      head.setAttribute('aria-expanded', state.closed[s.id] ? 'false' : 'true');
+      head.appendChild(el('h2', '', s.name));
+      head.appendChild(el('span', 'left', rows.length === 0 ? '' : left === 0 ? 'All ticked' : left + ' to go'));
+      head.insertAdjacentHTML('beforeend', CHEV_SVG);
+      head.addEventListener('click', function () {
+        state.closed[s.id] = !state.closed[s.id];
+        save(); render(false);
+      });
+      group.appendChild(head);
+
+      if (rows.length === 0) {
+        group.appendChild(el('p', 'empty', 'Nothing here yet. Tap Add programme to put something in ' + s.name + '.'));
+      } else {
+        var ul = el('ul', 'rows');
+        rows.forEach(function (item) {
+          var li = el('li', 'row' + (item.done ? ' is-done' : ''));
+          li.dataset.id = item.id;
+
+          var tick = el('button', 'tick');
+          tick.type = 'button';
+          tick.setAttribute('role', 'checkbox');
+          tick.setAttribute('aria-checked', item.done ? 'true' : 'false');
+          tick.setAttribute('aria-label', (item.done ? 'Untick ' : 'Tick ') + item.title);
+          tick.innerHTML = '<span>' + TICK_SVG + '</span>';
+          tick.addEventListener('click', function () { toggle(item.id); });
+
+          var body = el('button', 'body');
+          body.type = 'button';
+          body.setAttribute('aria-label', 'Edit ' + item.title);
+          var text = el('span', 'text');
+          text.appendChild(el('span', 'title', item.title));
+          if (item.note) text.appendChild(el('span', 'note', item.note));
+          body.appendChild(text);
+          if (item.channel) body.appendChild(chipFor(item.channel));
+          body.addEventListener('click', function () { openForm(item.id); });
+
+          li.appendChild(tick);
+          li.appendChild(body);
+          ul.appendChild(li);
+        });
+        group.appendChild(ul);
+      }
+      list.appendChild(group);
+    });
+
+    renderHeader();
+
+    if (animate && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      document.querySelectorAll('.row').forEach(function (r) {
+        var was = before[r.dataset.id];
+        if (was == null) return;
+        var dy = was - r.getBoundingClientRect().top;
+        if (!dy) return;
+        r.style.transform = 'translateY(' + dy + 'px)';
+        r.style.transition = 'none';
+        r.getBoundingClientRect();
+        r.style.transition = 'transform .28s ease';
+        r.style.transform = '';
+      });
+    }
+  }
+
+  function renderHeader() {
+    var total = state.items.length;
+    var done = state.items.filter(function (i) { return i.done; }).length;
+    var p = state.weekStart.split('-');
+    var start = new Date(+p[0], +p[1] - 1, +p[2]);
+    $('week').textContent = 'Week of ' + start.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+    $('bar').style.width = total ? Math.round(done / total * 100) + '%' : '0%';
+    $('tally').textContent = total === 0 ? 'Your list is empty'
+      : done === 0 ? 'Nothing ticked yet, ' + total + ' on the list'
+      : done === total ? 'Everything ticked'
+      : done + ' ticked, ' + (total - done) + ' to go';
+
+    var newWeek = mondayOf(new Date()) > state.weekStart;
+    if (newWeek && done === 0) { state.weekStart = mondayOf(new Date()); save(); return renderHeader(); }
+    $('banner').hidden = !newWeek;
+  }
+
+  /* ---------- actions ---------- */
+
+  function find(id) { return state.items.filter(function (i) { return i.id === id; })[0]; }
+
+  function toggle(id) {
+    var item = find(id);
+    if (!item) return;
+    item.done = !item.done;
+    item.doneAt = item.done ? Date.now() : 0;
+    save(); render(true);
+  }
+
+  function startNewWeek() {
+    state.items.forEach(function (i) { i.done = false; i.doneAt = 0; });
+    state.weekStart = mondayOf(new Date());
+    save(); render(false);
+    window.scrollTo(0, 0);
+  }
+
+  function show(id) { $(id).hidden = false; document.body.style.overflow = 'hidden'; }
+  function hideAll() {
+    document.querySelectorAll('.scrim').forEach(function (s) { s.hidden = true; });
+    document.body.style.overflow = '';
+  }
+
+  function renderPicks() {
+    var cp = $('channelPicks'); cp.textContent = '';
+    var current = $('fChannel').value.trim().toLowerCase();
+    CHANNELS.forEach(function (c) {
+      var b = el('button', 'pick' + (c.toLowerCase() === current ? ' is-on' : ''), c);
+      b.type = 'button';
+      b.addEventListener('click', function () {
+        $('fChannel').value = c.toLowerCase() === current ? '' : c;
+        renderPicks();
+      });
+      cp.appendChild(b);
+    });
+    var sp = $('sectionPicks'); sp.textContent = '';
+    SECTIONS.forEach(function (s) {
+      var b = el('button', 'pick' + (s.id === formSection ? ' is-on' : ''), s.name);
+      b.type = 'button';
+      b.addEventListener('click', function () { formSection = s.id; renderPicks(); });
+      sp.appendChild(b);
+    });
+  }
+
+  function openForm(id) {
+    var item = id ? find(id) : null;
+    editingId = item ? item.id : null;
+    $('formTitle').textContent = item ? 'Edit programme' : 'Add programme';
+    $('formSave').textContent = item ? 'Save changes' : 'Add programme';
+    $('removeRow').hidden = !item;
+    $('fTitle').value = item ? item.title : '';
+    $('fChannel').value = item ? item.channel : '';
+    $('fNote').value = item ? item.note : '';
+    if (item) formSection = item.section;
+    renderPicks();
+    show('formScrim');
+    $('formScrim').scrollTop = 0;
+    if (!item) $('fTitle').focus();
+  }
+
+  function submitForm(e) {
+    e.preventDefault();
+    var title = $('fTitle').value.trim();
+    if (!title) { $('fTitle').focus(); return; }
+    var channel = $('fChannel').value.trim();
+    var note = $('fNote').value.trim();
+    if (editingId) {
+      var item = find(editingId);
+      if (item) { item.title = title; item.channel = channel; item.note = note; item.section = formSection; }
+    } else {
+      state.items.push({ id: uid(), section: formSection, title: title, channel: channel, note: note, done: false, doneAt: 0 });
+      state.closed[formSection] = false;
+    }
+    save(); hideAll(); render(false);
+  }
+
+  function removeEditing() {
+    var item = find(editingId);
+    if (!item) return;
+    undoState = JSON.stringify(state);
+    state.items = state.items.filter(function (i) { return i.id !== item.id; });
+    save(); hideAll(); render(false);
+    toast('Removed ' + item.title);
+  }
+
+  function toast(text) {
+    $('toastText').textContent = text;
+    $('toast').hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { $('toast').hidden = true; undoState = null; }, 7000);
+  }
+
+  /* ---------- wiring ---------- */
+
+  $('addBtn').addEventListener('click', function () { openForm(null); });
+  $('form').addEventListener('submit', submitForm);
+  $('fChannel').addEventListener('input', renderPicksKeepFocus);
+  function renderPicksKeepFocus() {
+    var current = $('fChannel').value.trim().toLowerCase();
+    $('channelPicks').querySelectorAll('.pick').forEach(function (b) {
+      b.classList.toggle('is-on', b.textContent.toLowerCase() === current);
+    });
+  }
+  $('removeBtn').addEventListener('click', removeEditing);
+
+  $('weekBtn').addEventListener('click', openWeek);
+  $('bannerBtn').addEventListener('click', openWeek);
+  function openWeek() {
+    var done = state.items.filter(function (i) { return i.done; }).length;
+    $('weekText').textContent = done === 0
+      ? 'Nothing is ticked at the moment, so the list is already clear.'
+      : 'This clears ' + done + (done === 1 ? ' tick' : ' ticks') + ' so every programme is ready to watch again. Your list stays as it is.';
+    show('weekScrim');
+  }
+  $('weekConfirm').addEventListener('click', function () { hideAll(); startNewWeek(); });
+
+  $('menuBtn').addEventListener('click', function () { show('menuScrim'); });
+  $('backupBtn').addEventListener('click', function () {
+    hideAll();
+    $('backupText').value = JSON.stringify({ v: 1, weekStart: state.weekStart, items: state.items });
+    $('backupMsg').textContent = '';
+    show('backupScrim');
+  });
+  $('copyBtn').addEventListener('click', function () {
+    var ta = $('backupText');
+    var ok = function () { $('backupMsg').textContent = 'Copied. Paste it into a note or an email to keep it.'; };
+    var manual = function () { ta.focus(); ta.select(); $('backupMsg').textContent = 'Text selected. Choose Copy from the menu above it.'; };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(ok, manual);
+    else manual();
+  });
+  $('restoreBtn').addEventListener('click', function () {
+    var parsed = null;
+    try { parsed = clean(JSON.parse($('backupText').value)); } catch (e) { parsed = null; }
+    if (!parsed) { $('backupMsg').textContent = 'That text is not a Watchlist backup. Paste the whole backup and try again.'; return; }
+    parsed.closed = state.closed;
+    state = parsed;
+    save(); render(false);
+    $('backupMsg').textContent = 'Restored ' + state.items.length + ' programmes.';
+  });
+
+  $('toastUndo').addEventListener('click', function () {
+    if (undoState) { state = clean(JSON.parse(undoState)) || state; undoState = null; save(); render(false); }
+    $('toast').hidden = true;
+  });
+
+  document.querySelectorAll('.scrim').forEach(function (s) {
+    s.addEventListener('click', function (e) {
+      if (e.target === s || e.target.closest('[data-close]')) hideAll();
+    });
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') hideAll(); });
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) renderHeader(); });
+
+  render(false);
+  save();
+
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  }
+})();
+</script>
+</body>
+</html>
