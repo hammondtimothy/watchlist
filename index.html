@@ -146,6 +146,24 @@ button { cursor: pointer; }
 .text { flex: 1; min-width: 0; font-size: 15px; line-height: 1.2; overflow-wrap: anywhere; }
 .title { font-weight: 600; }
 .note { font-size: 13px; color: var(--muted); margin-left: 7px; }
+.rank {
+  flex: none; width: 40px;
+  display: grid; place-items: center;
+  font-size: 13px; font-weight: 700; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.row.is-queue .body { padding-right: 2px; }
+.nudge {
+  flex: none; width: 32px; min-height: 30px;
+  border: 0; padding: 0; background: transparent; color: var(--ink);
+  display: grid; place-items: center;
+}
+.nudge:last-child { margin-right: 4px; }
+.nudge svg { width: 14px; height: 14px; }
+.nudge:disabled { opacity: .2; }
+.nudge:not(:disabled):active { background: var(--line); }
+@keyframes moved { from { background: hsl(40 86% 62% / .45); } to { background: var(--surface); } }
+.row.just-moved { animation: moved .9s ease-out; }
 .row.is-done .title { color: var(--muted); font-weight: 500; text-decoration: line-through; text-decoration-thickness: 1.5px; }
 .row.is-done .chip { opacity: .55; }
 .chip {
@@ -349,6 +367,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--lamp); outline-
   'use strict';
 
   var KEY = 'watchlist.v1';
+  var QUEUE = 'pending'; // this list has no tick boxes; its rows are ordered by hand instead
   var SECTIONS = [
     { id: 'us', name: 'Tim & Wendy' },
     { id: 'tim', name: 'Tim' },
@@ -424,6 +443,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--lamp); outline-
         doneAt: Number(i.doneAt) || 0
       };
     });
+    items.forEach(function (i) { if (i.section === QUEUE) { i.done = false; i.doneAt = 0; } });
     return {
       v: 1,
       weekStart: typeof raw.weekStart === 'string' ? raw.weekStart : mondayOf(new Date()),
@@ -468,9 +488,11 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--lamp); outline-
   }
 
   var TICK_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="#2A1A3E" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3.3 3.3L13 4.8"/></svg>';
+  var UP_SVG = '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5L7 4.5l4 4"/></svg>';
+  var DOWN_SVG = '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5.5l4 4 4-4"/></svg>';
   var CHEV_SVG = '<svg class="chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 4l4 4 4-4"/></svg>';
 
-  function render(animate) {
+  function render(animate, movedId) {
     var before = {};
     if (animate) {
       document.querySelectorAll('.row').forEach(function (r) { before[r.dataset.id] = r.getBoundingClientRect().top; });
@@ -488,7 +510,8 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--lamp); outline-
       head.type = 'button';
       head.setAttribute('aria-expanded', state.closed[s.id] ? 'false' : 'true');
       head.appendChild(el('h2', '', s.name));
-      head.appendChild(el('span', 'left', rows.length === 0 ? '' : left === 0 ? 'All ticked' : left + ' to go'));
+      var queue = s.id === QUEUE;
+      head.appendChild(el('span', 'left', rows.length === 0 ? '' : queue ? rows.length + ' waiting' : left === 0 ? 'All ticked' : left + ' to go'));
       head.insertAdjacentHTML('beforeend', CHEV_SVG);
       head.addEventListener('click', function () {
         state.closed[s.id] = !state.closed[s.id];
@@ -500,8 +523,8 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--lamp); outline-
         group.appendChild(el('p', 'empty', 'Nothing here yet. Tap Add programme to put something in ' + s.name + '.'));
       } else {
         var ul = el('ul', 'rows');
-        rows.forEach(function (item) {
-          var li = el('li', 'row' + (item.done ? ' is-done' : ''));
+        rows.forEach(function (item, index) {
+          var li = el('li', 'row' + (item.done ? ' is-done' : '') + (queue ? ' is-queue' : '') + (item.id === movedId ? ' just-moved' : ''));
           li.dataset.id = item.id;
 
           var tick = el('button', 'tick');
@@ -522,8 +545,22 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--lamp); outline-
           if (item.channel) body.appendChild(chipFor(item.channel));
           body.addEventListener('click', function () { openForm(item.id); });
 
-          li.appendChild(tick);
-          li.appendChild(body);
+          if (queue) {
+            li.appendChild(el('span', 'rank', String(index + 1)));
+            li.appendChild(body);
+            [[-1, 'Move ' + item.title + ' up', UP_SVG], [1, 'Move ' + item.title + ' down', DOWN_SVG]].forEach(function (n) {
+              var b = el('button', 'nudge');
+              b.type = 'button';
+              b.setAttribute('aria-label', n[1]);
+              b.innerHTML = n[2];
+              b.disabled = n[0] < 0 ? index === 0 : index === rows.length - 1;
+              b.addEventListener('click', function () { nudge(item.id, n[0]); });
+              li.appendChild(b);
+            });
+          } else {
+            li.appendChild(tick);
+            li.appendChild(body);
+          }
           ul.appendChild(li);
         });
         group.appendChild(ul);
@@ -549,13 +586,14 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--lamp); outline-
   }
 
   function renderHeader() {
-    var total = state.items.length;
-    var done = state.items.filter(function (i) { return i.done; }).length;
+    var ticked = state.items.filter(function (i) { return i.section !== QUEUE; });
+    var total = ticked.length;
+    var done = ticked.filter(function (i) { return i.done; }).length;
     var p = state.weekStart.split('-');
     var start = new Date(+p[0], +p[1] - 1, +p[2]);
     $('week').textContent = 'Week of ' + start.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
     $('bar').style.width = total ? Math.round(done / total * 100) + '%' : '0%';
-    $('tally').textContent = total === 0 ? 'Your list is empty'
+    $('tally').textContent = total === 0 ? 'Nothing to watch yet'
       : done === total ? 'All ' + total + ' ticked'
       : done + ' ticked, ' + (total - done) + ' to go';
 
@@ -574,6 +612,17 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--lamp); outline-
     item.done = !item.done;
     item.doneAt = item.done ? Date.now() : 0;
     save(); render(true);
+  }
+
+  // Pending only: swap a programme with its neighbour to change the running order.
+  function nudge(id, dir) {
+    var q = state.items.filter(function (i) { return i.section === QUEUE; });
+    var at = q.map(function (i) { return i.id; }).indexOf(id);
+    var to = at + dir;
+    if (at < 0 || to < 0 || to >= q.length) return;
+    var a = state.items.indexOf(q[at]), b = state.items.indexOf(q[to]);
+    state.items[a] = q[to]; state.items[b] = q[at];
+    save(); render(true, id);
   }
 
   function startNewWeek() {
@@ -622,6 +671,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--lamp); outline-
     var title = $('fTitle').value.trim();
     if (title) { item.title = title; item.channel = $('fChannel').value.trim(); item.note = $('fNote').value.trim(); }
     item.section = sectionId;
+    if (sectionId === QUEUE) { item.done = false; item.doneAt = 0; }
     state.items = state.items.filter(function (i) { return i.id !== item.id; });
     state.items.push(item);
     state.closed[sectionId] = false;
@@ -660,7 +710,10 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--lamp); outline-
     var note = $('fNote').value.trim();
     if (editingId) {
       var item = find(editingId);
-      if (item) { item.title = title; item.channel = channel; item.note = note; item.section = formSection; }
+      if (item) {
+        item.title = title; item.channel = channel; item.note = note; item.section = formSection;
+        if (formSection === QUEUE) { item.done = false; item.doneAt = 0; }
+      }
     } else {
       state.items.push({ id: uid(), section: formSection, title: title, channel: channel, note: note, done: false, doneAt: 0 });
       state.closed[formSection] = false;
