@@ -367,7 +367,9 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--lamp); outline-
   'use strict';
 
   var KEY = 'watchlist.v1';
-  var QUEUE = 'pending'; // this list has no tick boxes; its rows are ordered by hand instead
+  // These lists have no tick boxes; their rows are put in order by hand with up/down arrows instead.
+  var QUEUES = ['pending', 'films', 'audio'];
+  function isQueue(sectionId) { return QUEUES.indexOf(sectionId) >= 0; }
   var SECTIONS = [
     { id: 'us', name: 'Tim & Wendy' },
     { id: 'tim', name: 'Tim' },
@@ -443,7 +445,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--lamp); outline-
         doneAt: Number(i.doneAt) || 0
       };
     });
-    items.forEach(function (i) { if (i.section === QUEUE) { i.done = false; i.doneAt = 0; } });
+    items.forEach(function (i) { if (isQueue(i.section)) { i.done = false; i.doneAt = 0; } });
     return {
       v: 1,
       weekStart: typeof raw.weekStart === 'string' ? raw.weekStart : mondayOf(new Date()),
@@ -510,7 +512,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--lamp); outline-
       head.type = 'button';
       head.setAttribute('aria-expanded', state.closed[s.id] ? 'false' : 'true');
       head.appendChild(el('h2', '', s.name));
-      var queue = s.id === QUEUE;
+      var queue = isQueue(s.id);
       head.appendChild(el('span', 'left', rows.length === 0 ? '' : queue ? rows.length + ' waiting' : left === 0 ? 'All ticked' : left + ' to go'));
       head.insertAdjacentHTML('beforeend', CHEV_SVG);
       head.addEventListener('click', function () {
@@ -586,7 +588,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--lamp); outline-
   }
 
   function renderHeader() {
-    var ticked = state.items.filter(function (i) { return i.section !== QUEUE; });
+    var ticked = state.items.filter(function (i) { return !isQueue(i.section); });
     var total = ticked.length;
     var done = ticked.filter(function (i) { return i.done; }).length;
     var p = state.weekStart.split('-');
@@ -614,9 +616,11 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--lamp); outline-
     save(); render(true);
   }
 
-  // Pending only: swap a programme with its neighbour to change the running order.
+  // Ordered lists only: swap a programme with its neighbour in the same list to change the running order.
   function nudge(id, dir) {
-    var q = state.items.filter(function (i) { return i.section === QUEUE; });
+    var moving = find(id);
+    if (!moving) return;
+    var q = state.items.filter(function (i) { return i.section === moving.section; });
     var at = q.map(function (i) { return i.id; }).indexOf(id);
     var to = at + dir;
     if (at < 0 || to < 0 || to >= q.length) return;
@@ -671,7 +675,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--lamp); outline-
     var title = $('fTitle').value.trim();
     if (title) { item.title = title; item.channel = $('fChannel').value.trim(); item.note = $('fNote').value.trim(); }
     item.section = sectionId;
-    if (sectionId === QUEUE) { item.done = false; item.doneAt = 0; }
+    if (isQueue(sectionId)) { item.done = false; item.doneAt = 0; }
     state.items = state.items.filter(function (i) { return i.id !== item.id; });
     state.items.push(item);
     state.closed[sectionId] = false;
@@ -712,7 +716,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--lamp); outline-
       var item = find(editingId);
       if (item) {
         item.title = title; item.channel = channel; item.note = note; item.section = formSection;
-        if (formSection === QUEUE) { item.done = false; item.doneAt = 0; }
+        if (isQueue(formSection)) { item.done = false; item.doneAt = 0; }
       }
     } else {
       state.items.push({ id: uid(), section: formSection, title: title, channel: channel, note: note, done: false, doneAt: 0 });
